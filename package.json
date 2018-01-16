@@ -13,7 +13,8 @@
   "keywords": [
     "aem",
     "clientlib",
-    "webpack"
+    "webpack",
+    "plugin"
   ],
   "repository": {
     "type": "git",
