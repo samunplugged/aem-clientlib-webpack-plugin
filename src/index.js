@@ -131,7 +131,8 @@ export default class AEMClientLibGeneratorPlugin {
     var text = [`#base=${kind}`];
     assets = _.sortBy(assets, ['destFile']);
     assets.forEach((asset) => {
-      if (Path.extname(asset.destFile) !== kind) {
+      console.log('ext:' + Path.extname(asset.destFile));
+      if (!Path.extname(asset.destFile).endsWith(kind)) {
         return;
       }
       var relativePath = Path.relative(Path.resolve(clientlibFolder, kind), asset.destFile);
