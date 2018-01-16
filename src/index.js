@@ -144,7 +144,6 @@ export default class AEMClientLibGeneratorPlugin {
         text.push(Path.basename(relativePath));
       }
     });
-    console.log(text);
     var destFile = Path.resolve(clientlibFolder, kind + '.txt');
     return FSE.outputFile(destFile, text.join('\n')).catch(() => this.handleError());
   }
