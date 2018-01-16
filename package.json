@@ -1,6 +1,6 @@
 {
   "name": "aem-clientlib-webpack-plugin",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A webpack plugin to generate clientlib structure based a clientlib.config.js file",
   "main": "lib/index.js",
   "scripts": {
