@@ -1,5 +1,5 @@
 {
-  "name": "webpack-aem-clientlib-generator",
+  "name": "aem-clientlib-webpack-plugin",
   "version": "1.0.0",
   "description": "A webpack plugin to generate clientlib structure based a clientlib.config.js file",
   "main": "lib/index.js",
@@ -15,6 +15,10 @@
     "clientlib",
     "webpack"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samunplugged/aem-clientlib-webpack-plugin.git"
+  },
   "author": "Sameer Gupta",
   "license": "MIT",
   "devDependencies": {
