@@ -79,7 +79,7 @@ export default class AEMClientLibGeneratorPlugin {
     const templateFn = this.templateEngine.compile();
     return Promise.all(_.map(libs, (lib) => {
       const xmlStr = templateFn({
-        name: lib.name,
+        categoryName: typeof(lib.categoryName) === 'string' ? lib.categoryName : lib.name,
         dependencies: lib.dependencies ? lib.dependencies : '',
       });
       const file = Path.resolve(baseDir, lib.destination, lib.name, '.content.xml');

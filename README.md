@@ -33,7 +33,9 @@ module.exports = {
     {
       // name: name of the clientlib. a folder by this name will be created in destination folder.
       name: "weretail.all",
-      // specify where you want to generate the clientlib. a relative path is required.
+      // categoryName: specifiy of the clientlib to be used in content.xml (if this is not specified, then value of 'name' property would be used)
+      categoryName: "weretail.all",
+      // destination: specify where you want to generate the clientlib. a relative path is required.
       destination: "../weretail/ui.apps/src/main/content/jcr_root/etc/clientlibs",
       // assets: specifies folders you want in your clientlib. each asset 'kind' is created as a folder.
       assets: {

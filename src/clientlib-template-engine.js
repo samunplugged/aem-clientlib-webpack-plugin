@@ -3,7 +3,7 @@ import * as _ from 'lodash';
 const defaultTemplateStr = '<?xml version="1.0" encoding="UTF-8"?> \n\
 <jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" \n\
     jcr:primaryType="cq:ClientLibraryFolder" \n\
-    categories="[<%= name %>]" \n\
+    categories="[<%= categoryName %>]" \n\
     dependencies="[<%= dependencies %>]"/>';
 
 export default class ClientlibTemplateEngine {
