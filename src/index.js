@@ -16,7 +16,7 @@ export default class AEMClientLibGeneratorPlugin {
   }
 
   apply(compiler) {
-    
+
     compiler.plugin('compile', (/*params*/) => {
       this.logger.info('\nThe compiler is starting to compile...\n');
     });
@@ -38,14 +38,13 @@ export default class AEMClientLibGeneratorPlugin {
       });
 
       this.logger.verbose(`now going to create directory under base: ${this.options.context}`);
-      
+
       if (this.options.cleanBuilds) {
         return this.cleanClientLibs().then(() => this.generateClientLibs(callback)).catch(() => this.handleError());
-      } else {
-        return this.generateClientLibs(callback).catch(() => this.handleError());
       }
-      
-      
+      return this.generateClientLibs(callback).catch(() => this.handleError());
+
+
     });
   }
 
@@ -53,7 +52,7 @@ export default class AEMClientLibGeneratorPlugin {
     return this.createBlankClientLibFolders()
       .then(() => this.createClientLibConfig())
       .then(() => this.copyFilesToLibs())
-      .then(() => {callback()})
+      .then(() => { callback(); })
       .catch(() => this.handleError());
   }
 
@@ -106,7 +105,7 @@ export default class AEMClientLibGeneratorPlugin {
         this.logger.verbose(`Copying asset: ${srcFile} to ${destFile}`);
         promises.push(FSE.ensureDir(destFolder).then(() => FSE.copyFile(srcFile, destFile).catch(() => this.handleError())));
       });
-      if (['js','css'].indexOf(kind) > -1) {
+      if (['js', 'css'].indexOf(kind) > -1) {
         this.createAssetTextFile(assets, kind, clientLibPath);
       }
     });
@@ -128,13 +127,13 @@ export default class AEMClientLibGeneratorPlugin {
   }
 
   createAssetTextFile(assets, kind, clientlibFolder) {
-    var text = [`#base=${kind}`];
+    const text = [`#base=${kind}`];
     assets = _.sortBy(assets, ['destFile']);
     assets.forEach((asset) => {
       if (!Path.extname(asset.destFile).endsWith(kind)) {
         return;
       }
-      var relativePath = Path.relative(Path.resolve(clientlibFolder, kind), asset.destFile);
+      const relativePath = Path.relative(Path.resolve(clientlibFolder, kind), asset.destFile);
       if (Path.basename(relativePath) === relativePath) {
         text.push(relativePath);
       } else if (text.lastIndexOf(`#base=${Path.dirname(relativePath)}`) === -1) {
@@ -144,7 +143,7 @@ export default class AEMClientLibGeneratorPlugin {
         text.push(Path.basename(relativePath));
       }
     });
-    var destFile = Path.resolve(clientlibFolder, kind + '.txt');
+    const destFile = Path.resolve(clientlibFolder, `${kind}.txt`);
     return FSE.outputFile(destFile, text.join('\n')).catch(() => this.handleError());
   }
 }
