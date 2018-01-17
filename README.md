@@ -24,6 +24,8 @@ A config file is a JS file that exports an Object literal and specifies settings
 module.exports = {
   // context: this sets the base directory of your project from which all other paths are derived
   context: __dirname, 
+  // watchDir: this specified the path of folder to watch. In most projects this will be your build directory. This is relative to 'context' and if this is not specified all of 'context' will be watched which can cause multiple generation of clientlibs. you can use glob pattern and can also use array of paths/patterns
+  watchDir: 'build',
   // logLevel: this sets the log level. You can specify 'info', 'verbose', or 'off'
   logLevel: 'info',
   // cleanBuilds: this clears the destination folders you specify for clientlibs
@@ -61,6 +63,8 @@ module.exports = {
     {
       // name: name of the clientlib. a folder by this name will be created in destination folder.
       name: "weretail.rtl",
+      // categoryName: specifiy of the clientlib to be used in content.xml (if this is not specified, then value of 'name' property would be used)
+      categoryName: "weretail.all",
       // destination: specify where you want to generate the clientlib. a relative path is required.
       destination: "../weretail/ui.apps/src/main/content/jcr_root/etc/clientlibs",
       // dependencies: comma seperated list of dependencies for this clientlib. 

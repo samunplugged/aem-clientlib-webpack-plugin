@@ -1,15 +1,18 @@
 import * as _ from 'lodash';
 
-import Path from 'path';
 import * as Glob from 'glob';
 import * as FSE from 'fs-extra';
-import {LoggerFactory} from './logger';
+import * as util from 'util';
+import Path from 'path';
+import Watch from 'node-watch';
 import ClientlibTemplateEngine from './clientlib-template-engine';
+import {LoggerFactory} from './logger';
 
 export default class AEMClientLibGeneratorPlugin {
   constructor(_options) {
     // Configure your plugin with options...
     this.options = _options;
+    this.setImmediatePromise = util.promisify(setImmediate);
     this.logger = LoggerFactory.getInstance(_options.logLevel);
     // TODO: allow use of this.options.templatePath
     this.templateEngine = new ClientlibTemplateEngine(false, this.options.templateSettings);
@@ -17,43 +20,57 @@ export default class AEMClientLibGeneratorPlugin {
 
   apply(compiler) {
 
-    compiler.plugin('compile', (/*params*/) => {
-      this.logger.info('\nThe compiler is starting to compile...\n');
-    });
-
-    compiler.plugin('compilation', (compilation) => {
-      this.logger.info('\nThe compiler is starting a new compilation...\n');
-
-      compilation.plugin('optimize', () => {
-        this.logger.info('\nThe compilation is starting to optimize files...\n');
-      });
-    });
-
-    compiler.plugin('emit', (compilation, callback) => {
+    compiler.plugin('done', (/*stats*/) => {
       // Create a header string for the generated file:
-      this.logger.info('\nThe compilation is starting to emit files...\n');
+      this.logger.verbose('\ncompiler has emitted files...\n');
 
-      Object.keys(compilation.assets).forEach((filename) => {
-        this.logger.verbose(filename);
-      });
+      const watchList = this.buildWatchList();
 
-      this.logger.verbose(`now going to create directory under base: ${this.options.context}`);
+      this.logger.verbose('\nwatching following folders:\n');
+      this.logger.verbose(watchList);
 
-      if (this.options.cleanBuilds) {
-        return this.cleanClientLibs().then(() => this.generateClientLibs(callback)).catch(() => this.handleError());
-      }
-      return this.generateClientLibs(callback).catch(() => this.handleError());
+      const nw = Watch(watchList, {
+        recursive: true,
+        persistent: true,
+      }, _.debounce(this.generateClientLibs.bind(this), 1000));
+
+      process.on('SIGINT', nw.close);
+
+      return this.generateClientLibs().catch(() => this.handleError());
 
 
     });
   }
 
-  generateClientLibs(callback) {
-    return this.createBlankClientLibFolders()
+  generateClientLibs() {
+    return this.setImmediatePromise()
+      .then(() => {
+        this.logger.info('\ngenerating clientlib\n');
+        if (this.options.cleanBuilds) {
+          return this.cleanClientLibs().catch(() => this.handleError());
+        }
+        return this.setImmediatePromise();
+      })
+      .then(() => this.createBlankClientLibFolders())
       .then(() => this.createClientLibConfig())
       .then(() => this.copyFilesToLibs())
-      .then(() => { callback(); })
       .catch(() => this.handleError());
+  }
+
+  buildWatchList() {
+    if (this.options.watchDir) {
+      let files = [];
+      if (typeof (this.options.watchDir) === 'string') {
+        files = files.concat(Glob.sync(this.options.watchDir, { cwd: this.options.context }));
+      } else {
+        _.forEach(this.options.watchDir, (dir) => {
+          files = files.concat(Glob.sync(dir, { cwd: this.options.context }));
+        });
+      }
+      return files;
+    }
+    return this.options.context;
+
   }
 
   cleanClientLibs(libs = this.options.libs, baseDir = this.options.context) {
@@ -79,7 +96,7 @@ export default class AEMClientLibGeneratorPlugin {
     const templateFn = this.templateEngine.compile();
     return Promise.all(_.map(libs, (lib) => {
       const xmlStr = templateFn({
-        categoryName: typeof(lib.categoryName) === 'string' ? lib.categoryName : lib.name,
+        categoryName: typeof (lib.categoryName) === 'string' ? lib.categoryName : lib.name,
         dependencies: lib.dependencies ? lib.dependencies : '',
       });
       const file = Path.resolve(baseDir, lib.destination, lib.name, '.content.xml');
