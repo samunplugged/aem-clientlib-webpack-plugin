@@ -16,15 +16,10 @@ npm install --save-dev aem-clientlib-webpack-plugin
 yarn add -D aem-clientlib-webpack-plugin
 ```
 
-## Setup your Webpack config
-Following code snippets should get you started with this webpack plugin.
+## Set-up configuration file
+A config file is a JS file that exports an Object literal and specifies settings to be used by the plugin. Save the following file as: `clientlib.config.js`
 
-
-
-### Set-up your config
-Second, set-up configuration. A config file is a JS file that exports an Object literal and specifies settings to be used by the plugin. Save the following file as: `clientlib.config.js`
-
-#### JavaScript 1.4 syntax
+### clientlib.config.js
 ```js
 module.exports = {
   // context: this sets the base directory of your project from which all other paths are derived
@@ -85,7 +80,7 @@ module.exports = {
 
 
 ### Set-up project to use this plugin
-First, import the dependency. Both ES6 and 1.4 syntax are given below for your benefit.
+Import the dependency. Both ES6 and 1.4 syntax are given below for your benefit.
 
 #### JavaScript 1.4 syntax
 ```js
@@ -99,11 +94,13 @@ import * as AEMClientlibWebpackPlugin from 'aem-clientlib-webpack-plugin';
 
 
 ### Use the plugin
-Finally, use the plugin.
+Finally, use the plugin. Simply add this in plugin section of your webpack config.
 
 #### For both JavaScript 1.4 and ES6
 ```js
-new AEMClientlibWebpackPlugin(require('./clientlib.config.js'))
+plugins: [
+  new AEMClientlibWebpackPlugin(require('./clientlib.config.js'))
+]
 ```
 
 ## Using during development
@@ -124,7 +121,9 @@ plugins: [
 ```
 
 # Enable sync with server
-To enable sync during development, include [aem-sync-webpack-plugin](https://github.com/lukaszblasz/aem-sync-webpack-plugin) and update your project's webpack config so it looks like this.
+To enable sync during development, you also need to include [aem-sync-webpack-plugin](https://github.com/lukaszblasz/aem-sync-webpack-plugin) and [write-file-webpack-plugin](https://github.com/gajus/write-file-webpack-plugin). 
+
+Update your project's webpack config so it looks something like this:
 
 ```js
 var AEMClientlibWebpackPlugin = require('aem-clientlib-webpack-plugin').default;
