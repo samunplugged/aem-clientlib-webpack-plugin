@@ -57,7 +57,7 @@ export class LoggerFactory {
       case 'verbose':
         return new VerboseLogger();
       default:
-        return DefaultLogger();
+        return new DefaultLogger();
     }
   }
 }

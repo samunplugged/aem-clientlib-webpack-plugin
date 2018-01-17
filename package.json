@@ -1,11 +1,11 @@
 {
   "name": "aem-clientlib-webpack-plugin",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A webpack plugin to generate clientlib structure based a clientlib.config.js file",
   "main": "lib/index.js",
   "scripts": {
-    "build": "./node_modules/.bin/babel src --out-dir lib --source-maps",
-    "watch": "./node_modules/.bin/babel src --out-dir lib --watch --plugins=",
+    "build": "./node_modules/.bin/babel src --out-dir lib",
+    "watch": "./node_modules/.bin/babel src --out-dir lib --watch",
     "lint": "./node_modules/.bin/eslint ./src/**.js",
     "lint:fix": "./node_modules/.bin/eslint ./src/**.js --fix",
     "test": "echo \"Error: no test specified\" && exit 1"
