@@ -1,49 +1,61 @@
 /* eslint no-unused-vars: 0, no-console: 0 */
+import * as Log from 'npmlog';
+
 class BaseLogger {
-  constructor() {
-    this.level = '';
+  constructor(_level) {
+    this.level = typeof(_level) === 'string' ? _level : 'silent';
+    console.log('Log level is', this.level);
+    Log.level = this.level;
   }
   verbose(message) {
     throw new Error('Base class method can\'t be called. This class must be extended');
   }
-  info() {
+  info(message) {
     throw new Error('Base class method can\'t be called. This class must be extended');
   }
 }
 class DefaultLogger extends BaseLogger {
   constructor() {
-    super();
-    this.level = 'off';
+    super('info');
   }
   verbose(message) {
     // do nothing
   }
-  info() {
+  info(message) {
+    // do nothing
+  }
+}
+class SilentLogger extends BaseLogger {
+  constructor() {
+    super('silent');
+  }
+  verbose(message) {
+    // do nothing
+  }
+  info(message) {
     // do nothing
   }
 }
 class InfoLogger extends BaseLogger {
   constructor() {
-    super();
-    this.level = 'info';
+    super('info');
   }
   verbose(message) {
     // do nothing
   }
   info(message) {
-    console.info(message);
+    Log.info('aem-clientlib-webpack-plugin', message);
   }
 }
 class VerboseLogger extends BaseLogger {
   constructor() {
-    super();
-    this.level = 'verbose';
+    super('silly');
   }
   verbose(message) {
-    console.info(message);
+    Log.verbose('aem-clientlib-webpack-plugin', message);
   }
   info(message) {
-    console.info(message);
+    Log.info('aem-clientlib-webpack-plugin', message);
   }
 }
 export class LoggerFactory {
@@ -56,6 +68,8 @@ export class LoggerFactory {
         return new InfoLogger();
       case 'verbose':
         return new VerboseLogger();
+      case 'silent':
+        return new SilentLogger();
       default:
         return new DefaultLogger();
     }

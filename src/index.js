@@ -22,11 +22,11 @@ export default class AEMClientLibGeneratorPlugin {
 
     compiler.plugin('done', (/*stats*/) => {
       // Create a header string for the generated file:
-      this.logger.verbose('\ncompiler has emitted files...\n');
+      this.logger.verbose('compiler has emitted files...');
 
       const watchList = this.buildWatchList();
 
-      this.logger.verbose('\nwatching following folders:\n');
+      this.logger.verbose('watching following folders:');
       this.logger.verbose(watchList);
 
       const nw = Watch(watchList, {
@@ -36,7 +36,7 @@ export default class AEMClientLibGeneratorPlugin {
 
       process.on('SIGINT', nw.close);
 
-      return this.generateClientLibs().catch(() => this.handleError());
+      return this.generateClientLibs().catch(this.handleError);
 
 
     });
@@ -45,16 +45,16 @@ export default class AEMClientLibGeneratorPlugin {
   generateClientLibs() {
     return this.setImmediatePromise()
       .then(() => {
-        this.logger.info('\ngenerating clientlib\n');
+        this.logger.info('generating clientlib');
         if (this.options.cleanBuilds) {
-          return this.cleanClientLibs().catch(() => this.handleError());
+          return this.cleanClientLibs().catch(this.handleError);
         }
         return this.setImmediatePromise();
       })
       .then(() => this.createBlankClientLibFolders())
       .then(() => this.createClientLibConfig())
       .then(() => this.copyFilesToLibs())
-      .catch(() => this.handleError());
+      .catch(this.handleError);
   }
 
   buildWatchList() {
@@ -76,19 +76,21 @@ export default class AEMClientLibGeneratorPlugin {
   cleanClientLibs(libs = this.options.libs, baseDir = this.options.context) {
     return Promise.all(_.map(libs, (lib) => {
       const dir = Path.resolve(baseDir, lib.destination, lib.name);
-      return FSE.remove(dir).catch(() => this.handleError());
-    })).catch(() => this.handleError());
+      this.logger.verbose(`cleaning directory: ${dir}`);
+      return FSE.remove(dir).catch(this.handleError);
+    })).catch(this.handleError);
   }
 
   handleError(err) {
-    throw new Error(err);
+    console.error('aem-clientlib-webpack-plugin', 'handleError', err);
+    console.trace('aem-clientlib-webpack-plugin', 'trace', err);
   }
 
   createBlankClientLibFolders(libs = this.options.libs, baseDir = this.options.context) {
     return Promise.all(_.map(libs, (lib) => {
       const dir = Path.resolve(baseDir, lib.destination, lib.name);
-      this.logger.verbose(`Creating directory: ${dir}`);
-      return FSE.ensureDir(dir).catch(() => this.handleError());
+      this.logger.verbose(`creating directory: ${dir}`);
+      return FSE.ensureDir(dir).catch(this.handleError);
     }));
   }
 
@@ -100,13 +102,13 @@ export default class AEMClientLibGeneratorPlugin {
         dependencies: lib.dependencies ? lib.dependencies : '',
       });
       const file = Path.resolve(baseDir, lib.destination, lib.name, '.content.xml');
-      this.logger.verbose(`Creating directory: ${file}`);
-      return FSE.outputFile(file, xmlStr).catch(() => this.handleError());
-    })).catch(() => this.handleError());
+      this.logger.verbose(`creating file: ${file}`);
+      return FSE.outputFile(file, xmlStr).catch(this.handleError);
+    })).catch(this.handleError);
   }
 
   copyFilesToLibs(libs = this.options.libs, baseDir = this.options.context) {
-    return Promise.all(_.map(libs, lib => this.copyAssetFilesToLib(lib, baseDir))).catch(() => this.handleError());
+    return Promise.all(_.map(libs, lib => this.copyAssetFilesToLib(lib, baseDir))).catch(this.handleError);
   }
 
   copyAssetFilesToLib(lib, baseDir = this.options.context) {
@@ -119,14 +121,14 @@ export default class AEMClientLibGeneratorPlugin {
         const destFolder = Path.resolve(clientLibPath, assets[i].dest);
         const destFile = Path.resolve(clientLibPath, assets[i].dest, Path.basename(srcFile));
         asset.destFile = destFile;
-        this.logger.verbose(`Copying asset: ${srcFile} to ${destFile}`);
-        promises.push(FSE.ensureDir(destFolder).then(() => FSE.copyFile(srcFile, destFile).catch(() => this.handleError())));
+        this.logger.verbose(`copying asset: ${Path.relative(baseDir, srcFile)} to ${Path.relative(baseDir, destFile)}`);
+        promises.push(FSE.ensureDir(destFolder).then(() => FSE.copyFile(srcFile, destFile).catch(this.handleError)));
       });
       if (['js', 'css'].indexOf(kind) > -1) {
         this.createAssetTextFile(assets, kind, clientLibPath);
       }
     });
-    return Promise.all(promises).catch(() => this.handleError());
+    return Promise.all(promises).catch(this.handleError);
   }
 
   buildAssetPaths(sourceFiles, kind, baseDir) {
@@ -161,6 +163,6 @@ export default class AEMClientLibGeneratorPlugin {
       }
     });
     const destFile = Path.resolve(clientlibFolder, `${kind}.txt`);
-    return FSE.outputFile(destFile, text.join('\n')).catch(() => this.handleError());
+    return FSE.outputFile(destFile, text.join('\n')).catch(this.handleError);
   }
 }
