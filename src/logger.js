@@ -3,7 +3,7 @@ import * as Log from 'npmlog';
 
 class BaseLogger {
   constructor(_level) {
-    this.level = typeof(_level) === 'string' ? _level : 'silent';
+    this.level = typeof (_level) === 'string' ? _level : 'silent';
     console.log('Log level is', this.level);
     Log.level = this.level;
   }

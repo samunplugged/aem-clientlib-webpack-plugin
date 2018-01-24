@@ -32,12 +32,11 @@ export default class AEMClientLibGeneratorPlugin {
       const nw = Watch(watchList, {
         recursive: true,
         persistent: true,
-      }, _.debounce(this.generateClientLibs.bind(this), 1000));
+      }, _.debounce(this.generateClientLibs.bind(this), 5000));
 
       process.on('SIGINT', nw.close);
 
       return this.generateClientLibs().catch(this.handleError);
-
 
     });
   }
@@ -122,10 +121,11 @@ export default class AEMClientLibGeneratorPlugin {
         const destFile = Path.resolve(clientLibPath, assets[i].dest, Path.basename(srcFile));
         asset.destFile = destFile;
         this.logger.verbose(`copying asset: ${Path.relative(baseDir, srcFile)} to ${Path.relative(baseDir, destFile)}`);
-        promises.push(FSE.ensureDir(destFolder).then(() => FSE.copyFile(srcFile, destFile).catch(this.handleError)));
+        
+        promises.push(FSE.ensureDir(destFolder).then(() => FSE.copy(srcFile, destFile).catch(this.handleError)));
       });
       if (['js', 'css'].indexOf(kind) > -1) {
-        this.createAssetTextFile(assets, kind, clientLibPath);
+        this.createAssetTextFile(assets, kind, clientLibPath, (typeof(lib.baseTxtFile) === 'object') ? lib.baseTxtFile[kind] : null);
       }
     });
     return Promise.all(promises).catch(this.handleError);
@@ -142,14 +142,17 @@ export default class AEMClientLibGeneratorPlugin {
   }
 
   flattenAssetPathPatterns(pattern, kind, baseDir) {
-    return _.map(Glob.sync(pattern.src ? pattern.src : pattern, { cwd: baseDir }), src => ({ src, dest: (typeof pattern === 'object' && pattern.dest) ? kind + Path.sep + pattern.dest : kind }));
+    return _.map(Glob.sync(pattern.src ? pattern.src : pattern, { cwd: baseDir }), src => ({ src, dest: (typeof pattern === 'object' && pattern.dest) ? kind + Path.sep + pattern.dest : kind, excludeFromTxt: (typeof pattern === 'object' && typeof (pattern.excludeFromTxt) === 'boolean') ? pattern.excludeFromTxt : false}));
   }
 
-  createAssetTextFile(assets, kind, clientlibFolder) {
+  createAssetTextFile(assets, kind, clientlibFolder, baseTxtFile) {
     const text = [`#base=${kind}`];
     assets = _.sortBy(assets, ['destFile']);
     assets.forEach((asset) => {
       if (!Path.extname(asset.destFile).endsWith(kind)) {
+        return;
+      }
+      if (asset.excludeFromTxt) {
         return;
       }
       const relativePath = Path.relative(Path.resolve(clientlibFolder, kind), asset.destFile);
@@ -163,6 +166,12 @@ export default class AEMClientLibGeneratorPlugin {
       }
     });
     const destFile = Path.resolve(clientlibFolder, `${kind}.txt`);
-    return FSE.outputFile(destFile, text.join('\n')).catch(this.handleError);
+    let txtContent = text.join('\n');
+    if (typeof (baseTxtFile) === 'string' && FSE.existsSync(baseTxtFile)) {
+      const txFileContext = FSE.readFileSync(baseTxtFile);
+      txtContent = `${txFileContext}\n${text.join('\n')}`;
+    }
+
+    return FSE.outputFile(destFile, txtContent).catch(this.handleError);
   }
 }

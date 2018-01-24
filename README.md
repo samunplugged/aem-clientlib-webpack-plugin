@@ -44,7 +44,13 @@ module.exports = {
         // js: when assets object contains 'js', a js.txt will be created and its content will include all files with .js extension. glob patterns are supported.
         js: [
           "build/dist/templates/main.js",
-          "build/dist/templates/main.js.map"
+          "build/dist/templates/main.js.map",
+          // you can also pass objects like below:
+          {
+            src: "js/legacy-code", // you may want to copy code outside of build system 
+            excludeFromTxt: true, // you may want to exclude it from txt file (optional: by default all files will be included)
+            dest:'../legacy-code' // here by using two dots we will ensure its copied at same level as js folder being created
+          }
         ],
         // css: when assets object contains 'css', a js.txt will be created and its content will include all files with .css extension. glob patterns are supported.
         css: [
@@ -58,6 +64,10 @@ module.exports = {
           {src: "src/assets/fonts/**", dest: "fonts/"},
           {src: "src/assets/images/**", dest: "images/"}
         ]
+      }
+      // baseTxtFile: if you want you can ask this tool to use an existing .txt file as base
+      baseTxtFile: {
+        js: path.resolve(__dirname, 'src/legacy/mcd-us/js.txt')
       }
     },
     {
