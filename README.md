@@ -87,7 +87,21 @@ module.exports = {
       }
     }
 
-  ]
+  ],
+  // beforeEach: is called for each lib before the lib's code is generated
+  beforeEach: function(lib) {
+    // return a promise. 
+    // resolve the promise when you want tool to continue
+    // or reject the promise when you want tool to skip generating clientlib
+    return Promise.resolve(true);
+  },
+  // before: is called before the first clientlib is generated
+  before: function() {
+    return Promise.resolve(true);
+    // return a promise. 
+    // resolve the promise when you want tool to continue
+    // or reject the promise when you want tool to skip generating clientlib
+  }
 
 
 }

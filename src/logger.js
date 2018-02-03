@@ -6,6 +6,7 @@ class BaseLogger {
     this.level = typeof (_level) === 'string' ? _level : 'silent';
     console.log('Log level is', this.level);
     Log.level = this.level;
+    
   }
   verbose(message) {
     throw new Error('Base class method can\'t be called. This class must be extended');
@@ -13,16 +14,8 @@ class BaseLogger {
   info(message) {
     throw new Error('Base class method can\'t be called. This class must be extended');
   }
-}
-class DefaultLogger extends BaseLogger {
-  constructor() {
-    super('info');
-  }
-  verbose(message) {
-    // do nothing
-  }
-  info(message) {
-    // do nothing
+  error(err) {
+    Log.error('aem-clientlib-webpack-plugin', err);
   }
 }
 class SilentLogger extends BaseLogger {
@@ -49,12 +42,13 @@ class InfoLogger extends BaseLogger {
 }
 class VerboseLogger extends BaseLogger {
   constructor() {
-    super('silly');
+    super('verbose');
   }
   verbose(message) {
-    Log.verbose('aem-clientlib-webpack-plugin', message);
+    Log.info('aem-clientlib-webpack-plugin', message);
   }
   info(message) {
+    Log.level = this.level;
     Log.info('aem-clientlib-webpack-plugin', message);
   }
 }
@@ -71,7 +65,7 @@ export class LoggerFactory {
       case 'silent':
         return new SilentLogger();
       default:
-        return new DefaultLogger();
+        throw new Error('Unknown log level');
     }
   }
 }
