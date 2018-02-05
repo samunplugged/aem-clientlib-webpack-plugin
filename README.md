@@ -59,10 +59,10 @@ module.exports = {
         ],
         // resources: the best practices is to place all your static assets in resources
         // src: specifies the files to copy 
-        // dest: specifies the folder where copied files will go. this is relative to resources folder. 
+        // dest: specifies the relative path where copied files will go. this is relative to the  name of your clientlib - in this case its 'resources'. by specifying ./ you are asking files from src/assets/** to be copied to resources/ 
+        // base: if you specify a glob and don't specify the base, then all matching will be copied to dest folder and no heirarchy will be created. In order for tool to know how to figure out heirarchy specify the base option. In most cases it will be the part of 'src' before the magic ** - in this case src/assets
         resources: [
-          {src: "src/assets/fonts/**", dest: "fonts/"},
-          {src: "src/assets/images/**", dest: "images/"}
+          {src: "src/assets/**", dest: "./", base:"src/assets"}
         ]
       }
       // baseTxtFile: if you want you can ask this tool to use an existing .txt file as base
@@ -150,28 +150,33 @@ plugins: [
 // ...
 ```
 
-# Enable sync with server
-To enable sync during development, you also need to include [aem-sync-webpack-plugin](https://github.com/lukaszblasz/aem-sync-webpack-plugin) and [write-file-webpack-plugin](https://github.com/gajus/write-file-webpack-plugin). 
+# Enable sync with server during development
+To enable sync during development, to enable sync with AEM server, this tool uses aemsync which uses Package Manager service of Adobe AEM server.
 
-Update your project's webpack config so it looks something like this:
+Update your clientlib config so it looks something like this:
 
 ```js
-var AEMClientlibWebpackPlugin = require('aem-clientlib-webpack-plugin').default;
-var WriteFileWebpackPlugin = require('write-file-webpack-plugin');
-var AemSyncPlugin = require('aem-sync-webpack-plugin');
-// ...
-plugins: [
-  // ...
-  new AEMClientlibWebpackPlugin(require('./clientlib.config.js')),
-  new WriteFileWebpackPlugin(),
-  new AemSyncPlugin({
+  sync: {
     targets: [
-        'http://admin:admin@localhost:4502'
+        'http://admin:admin@10.0.0.86:4502'
     ],
-    watchDir: path.resolve(__dirname, '../'), // this is currently pointing to parent folder. you just need to point it to project's root folder. my project's root is outside of my UI source code folder
-    exclude: '**/ui-source/**', // ignoring UI source code. you may instead choose to ignore node_modules by specifying '**/node_modules/**'
-    pushInterval: 1000
-  })
+    watchFolders: [Path.resolve(__dirname, '..')],
+    exclude: [],
+    pushInterval: 1000,
+    onPushEnd: ((err, host, pusher) => {
+      console.log(`Last sync to AEM at ${(new Date()).toTimeString()}`);
+      if (firstPush) {
+        firstPush = false;
+        TouchUtil.init(1).then(({changedHtmlFiles, svnBaseDir}) => {
+          changedHtmlFiles.forEach((file) => {
+            pusher.enqueue(Path.resolve(svnBaseDir, file));
+          });
+        }).catch((err) => {
+          console.error(`Failed to touch file. ${err}`);
+        });
+      }
+    }).bind(this)
+  }
   // ...
 ]
 // ...

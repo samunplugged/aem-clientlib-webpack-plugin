@@ -17,6 +17,8 @@
     "spaced-comment": 0,
     "max-len": 0,
     "no-param-reassign": 0,
-    "import/prefer-default-export": 0
+    "import/prefer-default-export": 0,
+    "comma-dangle": 0,
+    "no-nested-ternary": 0
   }
 }
