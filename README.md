@@ -24,8 +24,13 @@ A config file is a JS file that exports an Object literal and specifies settings
 module.exports = {
   // context: this sets the base directory of your project from which all other paths are derived
   context: __dirname, 
-  // watchDir: this specified the path of folder to watch. In most projects this will be your build directory. This is relative to 'context' and if this is not specified all of 'context' will be watched which can cause multiple generation of clientlibs. you can use glob pattern and can also use array of paths/patterns
-  watchDir: 'build',
+  // watchPaths: an array of path you want to observe for change. Even without this option, the webpack plugin will run on successful builds. This option is here in case you want to sync files outside of your 'ui' code folder. This is relative to 'context' and if this is not specified all of 'context' will be watched which can cause multiple generation of clientlibs. 
+  watchPaths: [
+    // any changes to matching files will result in generation of client libs and if sync is enabled they will be synced
+    {path: Path.resolve(__dirname, '../legacy-code/js'), match: "**"},
+    // if the syncOnly option is set to true then clients won't be generated, but those files will be synced to AEM server
+    {path: Path.resolve(__dirname, '../'), match: "**/jcr_root/apps/**/*.html", syncOnly: true}
+  ]
   // logLevel: this sets the log level. You can specify 'info', 'verbose', or 'off'
   logLevel: 'info',
   // cleanBuilds: this clears the destination folders you specify for clientlibs
@@ -47,7 +52,7 @@ module.exports = {
           "build/dist/templates/main.js.map",
           // you can also pass objects like below:
           {
-            src: "js/legacy-code", // you may want to copy code outside of build system 
+            src: "../legacy-code/js/", // you may want to copy code from outside of build system 
             excludeFromTxt: true, // you may want to exclude it from txt file (optional: by default all files will be included)
             dest:'../legacy-code' // here by using two dots we will ensure its copied at same level as js folder being created
           }
@@ -67,7 +72,7 @@ module.exports = {
       }
       // baseTxtFile: if you want you can ask this tool to use an existing .txt file as base
       baseTxtFile: {
-        js: path.resolve(__dirname, 'src/legacy/mcd-us/js.txt')
+        js: path.resolve(__dirname, '../legacy-code/js.txt')
       }
     },
     {

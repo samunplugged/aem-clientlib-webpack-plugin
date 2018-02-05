@@ -6,7 +6,7 @@ class BaseLogger {
     this.level = typeof (_level) === 'string' ? _level : 'silent';
     console.log('Log level is', this.level);
     Log.level = this.level;
-    
+
   }
   verbose(message) {
     throw new Error('Base class method can\'t be called. This class must be extended');

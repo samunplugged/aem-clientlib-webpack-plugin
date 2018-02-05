@@ -7,6 +7,7 @@ import * as Util from 'util';
 import Path from 'path';
 import Watch from 'node-watch';
 import ClientlibTemplateEngine from './clientlib-template-engine';
+import MM from 'micromatch';
 import {
   LoggerFactory
 } from './logger';
@@ -43,26 +44,18 @@ export default class AEMClientLibGeneratorPlugin {
     this.state.watching = true;
     this.state.setupDone = true;
 
-    const watchList = this.buildWatchList();
-
-    this.logger.verbose('watching following folders:');
-    this.logger.verbose(watchList);
-
     if (this.isWatchEnabled()) {
-      const nw = Watch(watchList, {
-        recursive: true,
-        persistent: true,
-      }, this.generateClientLibs.bind(this));
-
-      process.on('SIGINT', nw.close);
+      _.forEach(this.options.watchPaths, (watch) => {
+        this.createWatcher(watch.path, watch.match, watch.syncOnly);
+      });
     }
 
     if (this.options.sync) {
       this.pusher = new Pusher(this.options.sync.targets, this.options.sync.pushInterval, (err, host) => {
         if (err) {
-          console.log('Error when pushing package', err);
+          this.logger.error('Error when pushing package', err);
         } else {
-          console.log(`Package pushed to ${host}`);
+          this.logger.info(`Package pushed to ${host}`);
         }
         if (this.options.sync.onPushEnd) {
           this.options.sync.onPushEnd(err, host, this.pusher);
@@ -87,6 +80,27 @@ export default class AEMClientLibGeneratorPlugin {
 
       this.generateClientLibs();
     });
+  }
+
+  createWatcher(path, pattern, isSyncOnly) {
+    const nw = Watch(path, {
+      recursive: true,
+      persistent: true,
+    }, ((evt, name) => {
+        if (this.pusher && evt === 'update') {
+          if (typeof (pattern) === 'undefined' || MM([name], pattern).length > 0) {
+            if (isSyncOnly) {
+              this.pusher.enqueue(name);
+            } else {
+              this.generateClientLibs();
+            }
+          }
+        }
+      }));
+
+    process.on('SIGINT', nw.close);
+
+    return nw;
   }
 
   generateClientLibs() {
@@ -190,7 +204,7 @@ export default class AEMClientLibGeneratorPlugin {
     const promises = [];
     Object.keys(lib.assets).forEach((kind) => {
       const promise = this.options.beforeEach ? this.options.beforeEach : Util.promisify(setImmediate);
-      promises.push(promise(lib).then(() => {
+      promise(lib).then(() => {
         const assets = this.buildAssetPaths(lib.assets[kind], kind, baseDir);
         assets.forEach((asset, i) => {
           const srcFile = Path.resolve(baseDir, assets[i].src);
@@ -200,9 +214,9 @@ export default class AEMClientLibGeneratorPlugin {
           FSE.ensureDirSync(destFolder);
           const compareResult = this.compareFileFunc(srcFile, destFile);
           if (compareResult === true || (compareResult === 'dir' && !FS.existsSync(destFile))) {
-            FSE.copySync(srcFile, destFile, {
+            promises.push(FSE.copy(srcFile, destFile, {
               preserveTimestamps: true
-            });
+            }).catch(this.handleError));
             this.copiedFiles.push(destFile);
           }
         });
@@ -210,7 +224,7 @@ export default class AEMClientLibGeneratorPlugin {
           promises.push(this.createAssetTextFile(assets, kind, clientLibPath, (typeof (lib.baseTxtFile) === 'object') ? lib.baseTxtFile[kind] : null).catch(this.handleError));
         }
         return true;
-      }));
+      });
     });
     return Promise.all(promises).catch(this.handleError);
   }
@@ -296,6 +310,6 @@ export default class AEMClientLibGeneratorPlugin {
   }
 
   isWatchEnabled() {
-    return process.argv.indexOf('--watch') != -1;
+    return process.argv.indexOf('--watch') !== -1;
   }
 }
