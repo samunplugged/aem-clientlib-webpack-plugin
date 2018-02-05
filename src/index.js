@@ -268,7 +268,7 @@ export default class AEMClientLibGeneratorPlugin {
       const txFileContext = FSE.readFileSync(baseTxtFile);
       txtContent = `${txFileContext}\n${text.join('\n')}`;
     }
-
+    this.copiedFiles.push(destFile);
     return FSE.outputFile(destFile, txtContent).catch(this.handleError);
   }
 
