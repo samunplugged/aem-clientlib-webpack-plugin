@@ -1,21 +1,33 @@
-import * as _ from 'lodash';
-
-import * as Glob from 'glob';
-import * as FSE from 'fs-extra';
-import * as FS from 'fs';
-import * as Util from 'util';
-import Path from 'path';
-import Watch from 'node-watch';
-import ClientlibTemplateEngine from './clientlib-template-engine';
-import MM from 'micromatch';
+/* eslint no-console: 0 */
+/* imports */
 import {
-  LoggerFactory
-} from './logger';
-import 'babel-core/register';
-import 'babel-polyfill';
+  createHash
+} from 'crypto';
 import {
   Pusher
 } from 'aemsync';
+import { setTimeout } from 'timers';
+import _ from 'lodash';
+import 'babel-core/register';
+import 'babel-polyfill';
+import Chalk from 'chalk';
+import Filesize from 'filesize';
+import FSE from 'fs-extra';
+import FS from 'fs';
+import Glob from 'glob';
+import MM from 'micromatch';
+import Path from 'path';
+import Util from 'util';
+import Watch from 'node-watch';
+
+
+/* relative imports */
+import ClientlibTemplateEngine from './clientlib-template-engine';
+import LoggerFactory from './logger-factory';
+/* imports end */
+
+const assetSourceHashIndex = {};
+const isMemoryFileSystem = outputFileSystem => outputFileSystem.constructor.name === 'MemoryFileSystem';
 
 export default class AEMClientLibGeneratorPlugin {
 
@@ -60,6 +72,12 @@ export default class AEMClientLibGeneratorPlugin {
         if (this.options.sync.onPushEnd) {
           this.options.sync.onPushEnd(err, host, this.pusher);
         }
+        setTimeout(() => {
+          if (typeof (this.pendingCallback) === 'function') {
+            this.pendingCallback();
+            this.pendingCallback = null;
+          }
+        }, 1000);
       });
       this.pusher.start();
     }
@@ -67,19 +85,66 @@ export default class AEMClientLibGeneratorPlugin {
 
   apply(compiler) {
 
-    compiler.plugin('done', (stats) => {
+    compiler.plugin('emit', (compilation, callback) => {
 
       this.setUp();
 
-      // Create a header string for the generated file:
-      this.logger.verbose('compiler has emitted files...');
+      this.logger.info('compiler is emitting files...');
 
-      if (this.exitOnErrors && stats.compilation.errors.length) {
+      if (this.exitOnErrors && compilation.errors.length) {
         return;
       }
 
-      this.generateClientLibs();
+      this.writeCompiledFiles(compilation, compiler);
+
+      setTimeout((() => {
+        this.generateClientLibs(callback);
+      }), 1000);
+
     });
+  }
+
+  writeCompiledFiles(compilation, compiler) {
+    this.logger.info(`writeCompiledFiles ${(new Date()).toLocaleTimeString()}`);
+
+    this.options.build = _.assign({}, this.options.build);
+
+    const outputPath = (_.has(compiler, 'options.output.path') && compiler.options.output.path !== '/') ? compiler.options.output.path : Path.resolve(process.cwd(), 'build');
+
+    if (!isMemoryFileSystem(compiler.outputFileSystem) && !this.options.build.force) {
+      this.logger.info(`----- ${!isMemoryFileSystem(compiler.outputFileSystem)} - ${!this.options.build.force}`);
+      return false;
+    }
+
+    _.forEach(compilation.assets, (asset, assetPath) => {
+      const outputFilePath = Path.isAbsolute(assetPath) ? assetPath : Path.join(outputPath, assetPath);
+      const relativeOutputPath = Path.relative(process.cwd(), outputFilePath);
+      const targetDefinition = `asset: ${Chalk.cyan(`./${assetPath}`)}; destination: ${Chalk.cyan(`./${relativeOutputPath}`)}`;
+
+      const assetSize = asset.size();
+      const assetSource = Array.isArray(asset.source()) ? asset.source().join('\n') : asset.source();
+
+      if (this.options.build.useHashIndex) {
+        const assetSourceHash = createHash('sha256').update(assetSource).digest('hex');
+        if (assetSourceHashIndex[assetPath] && assetSourceHashIndex[assetPath] === assetSourceHash) {
+          this.logger.info(targetDefinition, Chalk.yellow('[skipped; matched hash index]'));
+          return;
+        }
+        assetSourceHashIndex[assetPath] = assetSourceHash;
+      }
+
+      FSE.ensureDirSync(Path.dirname(relativeOutputPath));
+
+      try {
+        FSE.writeFileSync(relativeOutputPath.split('?')[0], assetSource);
+        this.logger.info(targetDefinition, Chalk.green('[written]'), Chalk.magenta(`(${Filesize(assetSize)})`));
+      } catch (exp) {
+        this.logger.info(targetDefinition, Chalk.bold.red('[is not written]'), Chalk.magenta(`(${Filesize(assetSize)})`));
+        this.logger.info(Chalk.bold.bgRed('Exception:'), Chalk.bold.red(exp.message));
+      }
+    });
+
+    return true;
   }
 
   createWatcher(path, pattern, isSyncOnly) {
@@ -103,7 +168,7 @@ export default class AEMClientLibGeneratorPlugin {
     return nw;
   }
 
-  generateClientLibs() {
+  generateClientLibs(callback) {
 
     const promise = this.options.before ? this.options.before : Util.promisify(setImmediate);
 
@@ -122,9 +187,14 @@ export default class AEMClientLibGeneratorPlugin {
       .then(() => {
         this.logger.info(`clientlib generated - ${(new Date()).toLocaleTimeString()}`);
         if (this.pusher && this.copiedFiles) {
+          if (callback) {
+            this.pendingCallback = callback;
+          }
           this.copiedFiles.forEach((file) => {
             this.pusher.enqueue(file);
           });
+        } else if (callback) {
+          callback();
         }
         if (!this.isWatchEnabled()) {
           process.exit(0);
@@ -181,6 +251,7 @@ export default class AEMClientLibGeneratorPlugin {
   }
 
   createClientLibConfig(libs = this.options.libs, baseDir = this.options.context) {
+    this.copiedFiles = [];
     const templateFn = this.templateEngine.compile();
     return Promise.all(_.map(libs, (lib) => {
       const xmlStr = templateFn({
@@ -190,12 +261,12 @@ export default class AEMClientLibGeneratorPlugin {
       const file = Path.resolve(baseDir, lib.destination, lib.name, '.content.xml');
       this.logger.verbose(`creating file: ${file}`);
       const promise = this.options.beforeEach ? this.options.beforeEach : Util.promisify(setImmediate);
+      this.copiedFiles.push(file);
       return promise(lib).then(() => FSE.outputFile(file, xmlStr).catch(this.handleError)).catch(this.handleError);
     })).catch(this.handleError);
   }
 
   copyFilesToLibs(libs = this.options.libs, baseDir = this.options.context) {
-    this.copiedFiles = [];
     return Promise.all(_.map(libs, lib => this.copyAssetFilesToLib(lib, baseDir))).catch(this.handleError);
   }
 

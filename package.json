@@ -24,10 +24,8 @@
   "license": "MIT",
   "devDependencies": {
     "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.0",
     "babel-eslint": "^8.2.1",
     "babel-plugin-transform-runtime": "^6.23.0",
-    "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.6.1",
     "babel-preset-es2017": "^6.24.1",
     "babel-runtime": "^6.26.0",
@@ -41,11 +39,17 @@
   "dependencies": {
     "aemsync": "^2.0.1",
     "async": "^2.6.0",
+    "babel-core": "^6.26.0",
+    "babel-polyfill": "^6.26.0",
+    "chalk": "^2.3.0",
+    "debug": "^3.1.0",
     "eslint": "^4.15.0",
+    "filesize": "^3.6.0",
     "fs-extra": "^5.0.0",
     "glob": "^7.1.2",
     "lodash": "^4.17.4",
     "micromatch": "^3.1.5",
+    "moment": "^2.20.1",
     "node-watch": "^0.5.5",
     "npmlog": "^4.1.2"
   }

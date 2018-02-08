@@ -1,71 +1,88 @@
-/* eslint no-unused-vars: 0, no-console: 0 */
-import * as Log from 'npmlog';
+/* eslint no-console: 0 */
+import DebugFn from 'debug';
+import _ from 'lodash';
+import Moment from 'moment';
+import Chalk from 'chalk';
 
-class BaseLogger {
+export const pluginName = 'aem-clientlib-webpack-plugin';
+const debug = DebugFn(pluginName);
+
+export class BaseLogger {
   constructor(_level) {
     this.level = typeof (_level) === 'string' ? _level : 'silent';
     console.log('Log level is', this.level);
-    Log.level = this.level;
-
   }
-  verbose(message) {
-    throw new Error('Base class method can\'t be called. This class must be extended');
+  verbose(...message) {
+    throw new Error(`Base class method can't be called. This class must be extended. verbose(...message) called with ${message}`);
   }
-  info(message) {
-    throw new Error('Base class method can\'t be called. This class must be extended');
+  info(...message) {
+    throw new Error(`Base class method can't be called. This class must be extended. info(...message) called with ${message}`);
   }
-  error(err) {
-    Log.error('aem-clientlib-webpack-plugin', err);
+  error(...message) {
+    throw new Error(`Base class method can't be called. This class must be extended. error(...message) called with ${message}`);
+  }
+  log(type, append) {
+    debug(BaseLogger.getLogBanner(type), ...append);
+  }
+  static getColor(type) {
+    switch (type) {
+      case 'info':
+        return Chalk.yellow;
+      case 'verbose':
+        return Chalk.blueBright;
+      case 'error':
+        return Chalk.red;
+      default:
+        return Chalk.black;
+    }
+  }
+  static getLogBanner(type) {
+    return BaseLogger.getColor(type)(`[${Moment().format('HH:mm:ss')}] [${pluginName}]`);
+  }
+  static get pluginName() {
+    return 'aem-clientlib-webpack-plugin';
   }
 }
-class SilentLogger extends BaseLogger {
+export class SilentLogger extends BaseLogger {
   constructor() {
     super('silent');
   }
-  verbose(message) {
-    // do nothing
+  verbose(...message) {
+    _.noop(message);
   }
-  info(message) {
-    // do nothing
+  info(...message) {
+    _.noop(message);
+  }
+  error(...message) {
+    _.noop(message);
   }
 }
-class InfoLogger extends BaseLogger {
+export class InfoLogger extends BaseLogger {
   constructor() {
     super('info');
   }
-  verbose(message) {
-    // do nothing
+  verbose(...message) {
+    _.noop(message);
   }
-  info(message) {
-    Log.info('aem-clientlib-webpack-plugin', message);
+  info(...message) {
+    this.log('info', ...message);
+  }
+  error(...message) {
+    this.log('error', ...message);
   }
 }
-class VerboseLogger extends BaseLogger {
+export class VerboseLogger extends BaseLogger {
   constructor() {
     super('verbose');
   }
-  verbose(message) {
-    Log.info('aem-clientlib-webpack-plugin', message);
+  verbose(...message) {
+    this.log('verbose', ...message);
   }
-  info(message) {
-    Log.level = this.level;
-    Log.info('aem-clientlib-webpack-plugin', message);
+  info(...message) {
+    this.log('info', ...message);
   }
-}
-export class LoggerFactory {
-  constructor() {
-    throw new Error('LoggerFactory, must not be initialitzed. Call getInstance method instead');
-  }
-  static getInstance(level) {
-    switch (level) {
-      case 'info':
-        return new InfoLogger();
-      case 'verbose':
-        return new VerboseLogger();
-      case 'silent':
-        return new SilentLogger();
-      default:
-        throw new Error('Unknown log level');
-    }
+  error(...message) {
+    this.log('info', ...message);
   }
 }
+
