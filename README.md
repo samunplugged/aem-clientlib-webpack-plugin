@@ -24,17 +24,28 @@ A config file is a JS file that exports an Object literal and specifies settings
 module.exports = {
   // context: this sets the base directory of your project from which all other paths are derived
   context: __dirname, 
-  // watchPaths: an array of path you want to observe for change. Even without this option, the webpack plugin will run on successful builds. This option is here in case you want to sync files outside of your 'ui' code folder. This is relative to 'context' and if this is not specified all of 'context' will be watched which can cause multiple generation of clientlibs. 
+  
+  // watchPaths: an array of path you want to observe for change. 
+  // Even without this option, the webpack plugin will run on successful builds. 
+  // This option is here in case you want to sync files outside of your 'ui' code folder. 
+  // This is relative to 'context' and if this is not specified all of 'context' 
+  // will be watched which can cause multiple generation of clientlibs. 
   watchPaths: [
     // any changes to matching files will result in generation of client libs and if sync is enabled they will be synced
     {path: Path.resolve(__dirname, '../legacy-code/js'), match: "**"},
     // if the syncOnly option is set to true then clients won't be generated, but those files will be synced to AEM server
     {path: Path.resolve(__dirname, '../'), match: "**/jcr_root/apps/**/*.html", syncOnly: true}
   ]
+  
   // logLevel: this sets the log level. You can specify 'info', 'verbose', or 'off'
   logLevel: 'info',
+  
   // cleanBuilds: this clears the destination folders you specify for clientlibs
   cleanBuilds: true,
+  
+  // cleanBuildsOnce: true (default) clears the destination folders you run webpack for first time.
+  cleanBuildsOnce: false,
+
   // libs: this is an array of objects. each object specify a 'clientlib' to be created
   libs: [
     {
@@ -93,6 +104,7 @@ module.exports = {
     }
 
   ],
+
   // beforeEach: is called for each lib before the lib's code is generated
   beforeEach: function(lib) {
     // return a promise. 
@@ -100,6 +112,7 @@ module.exports = {
     // or reject the promise when you want tool to skip generating clientlib
     return Promise.resolve(true);
   },
+
   // before: is called before the first clientlib is generated
   before: function() {
     return Promise.resolve(true);
@@ -108,7 +121,14 @@ module.exports = {
     // or reject the promise when you want tool to skip generating clientlib
   }
 
-
+  // generation of clientlibs depends on webpack writing the files
+  // if you already writing to disk using write-file-webpack-plugin
+  // then you can set build.force: false
+  // this plugin will also write file to disk like the write-file-webpack-plugin
+  // this basically means that during development, your build destination is updated
+  build: {
+    force: false
+  }
 }
 
 ```
@@ -161,28 +181,23 @@ To enable sync during development, to enable sync with AEM server, this tool use
 Update your clientlib config so it looks something like this:
 
 ```js
+  // sync: can be function that returns an Object.
   sync: {
+    // specify AEM server URLs
     targets: [
-        'http://admin:admin@10.0.0.86:4502'
+        'http://admin:admin@127.0.0.1:4502'
     ],
-    watchFolders: [Path.resolve(__dirname, '..')],
-    exclude: [],
     pushInterval: 1000,
     onPushEnd: ((err, host, pusher) => {
-      console.log(`Last sync to AEM at ${(new Date()).toTimeString()}`);
-      if (firstPush) {
-        firstPush = false;
-        TouchUtil.init(1).then(({changedHtmlFiles, svnBaseDir}) => {
-          changedHtmlFiles.forEach((file) => {
-            pusher.enqueue(Path.resolve(svnBaseDir, file));
-          });
-        }).catch((err) => {
-          console.error(`Failed to touch file. ${err}`);
-        });
+      if (err) {
+        console.error(err);
+        return;
       }
-    }).bind(this)
+      console.log(`Last sync to ${host} at ${(new Date()).toTimeString()}`);
+    }),
+    pushEntireClientlibOnFirstRun: true
   }
-  // ...
+  
 ]
 // ...
 ```

@@ -1,17 +1,9 @@
 /* eslint no-console: 0 */
 /* imports */
-import {
-  createHash
-} from 'crypto';
-import {
-  Pusher
-} from 'aemsync';
-import { setTimeout } from 'timers';
 import _ from 'lodash';
 import 'babel-core/register';
 import 'babel-polyfill';
 import Chalk from 'chalk';
-import Filesize from 'filesize';
 import FSE from 'fs-extra';
 import FS from 'fs';
 import Glob from 'glob';
@@ -19,15 +11,12 @@ import MM from 'micromatch';
 import Path from 'path';
 import Util from 'util';
 import Watch from 'node-watch';
-
-
 /* relative imports */
 import ClientlibTemplateEngine from './clientlib-template-engine';
 import LoggerFactory from './logger-factory';
+import Syncer from './syncer';
+import Builder from './builder';
 /* imports end */
-
-const assetSourceHashIndex = {};
-const isMemoryFileSystem = outputFileSystem => outputFileSystem.constructor.name === 'MemoryFileSystem';
 
 export default class AEMClientLibGeneratorPlugin {
 
@@ -39,6 +28,8 @@ export default class AEMClientLibGeneratorPlugin {
     this.options.cleanBuilds = typeof (this.options.cleanBuilds) !== 'undefined' ? this.options.cleanBuilds : false;
     this.setImmediatePromise = Util.promisify(setImmediate);
     this.options.logLevel = _options.logLevel ? _options.logLevel : 'info';
+    this.options.onBuild = _options.onBuild ? _options.onBuild : _.noop;
+    this.options.sync = typeof _options.sync === 'function' ? _options.sync() : _options.sync;
     this.logger = LoggerFactory.getInstance(this.options.logLevel);
     this.state = {
       cleaned: false,
@@ -53,8 +44,13 @@ export default class AEMClientLibGeneratorPlugin {
     if (this.state.setupDone) {
       return;
     }
+
     this.state.watching = true;
     this.state.setupDone = true;
+
+    if (this.options.sync) {
+      this.syncer = new Syncer(this.options.sync.targets, this.options.sync.pushInterval || 1000, this.options.sync.onPushEnd || _.noop);
+    }
 
     if (this.isWatchEnabled()) {
       _.forEach(this.options.watchPaths, (watch) => {
@@ -62,25 +58,7 @@ export default class AEMClientLibGeneratorPlugin {
       });
     }
 
-    if (this.options.sync) {
-      this.pusher = new Pusher(this.options.sync.targets, this.options.sync.pushInterval, (err, host) => {
-        if (err) {
-          this.logger.error('Error when pushing package', err);
-        } else {
-          this.logger.info(`Package pushed to ${host}`);
-        }
-        if (this.options.sync.onPushEnd) {
-          this.options.sync.onPushEnd(err, host, this.pusher);
-        }
-        setTimeout(() => {
-          if (typeof (this.pendingCallback) === 'function') {
-            this.pendingCallback();
-            this.pendingCallback = null;
-          }
-        }, 1000);
-      });
-      this.pusher.start();
-    }
+    this.builder = new Builder(this.options);
   }
 
   apply(compiler) {
@@ -89,62 +67,18 @@ export default class AEMClientLibGeneratorPlugin {
 
       this.setUp();
 
+      this.copiedFiles = [];
+
       this.logger.info('compiler is emitting files...');
 
       if (this.exitOnErrors && compilation.errors.length) {
         return;
       }
-
-      this.writeCompiledFiles(compilation, compiler);
-
-      setTimeout((() => {
+      this.builder.build(compilation, compiler);
+      setTimeout(() => {
         this.generateClientLibs(callback);
-      }), 1000);
-
+      }, 1000);
     });
-  }
-
-  writeCompiledFiles(compilation, compiler) {
-    this.logger.info(`writeCompiledFiles ${(new Date()).toLocaleTimeString()}`);
-
-    this.options.build = _.assign({}, this.options.build);
-
-    const outputPath = (_.has(compiler, 'options.output.path') && compiler.options.output.path !== '/') ? compiler.options.output.path : Path.resolve(process.cwd(), 'build');
-
-    if (!isMemoryFileSystem(compiler.outputFileSystem) && !this.options.build.force) {
-      this.logger.info(`----- ${!isMemoryFileSystem(compiler.outputFileSystem)} - ${!this.options.build.force}`);
-      return false;
-    }
-
-    _.forEach(compilation.assets, (asset, assetPath) => {
-      const outputFilePath = Path.isAbsolute(assetPath) ? assetPath : Path.join(outputPath, assetPath);
-      const relativeOutputPath = Path.relative(process.cwd(), outputFilePath);
-      const targetDefinition = `asset: ${Chalk.cyan(`./${assetPath}`)}; destination: ${Chalk.cyan(`./${relativeOutputPath}`)}`;
-
-      const assetSize = asset.size();
-      const assetSource = Array.isArray(asset.source()) ? asset.source().join('\n') : asset.source();
-
-      if (this.options.build.useHashIndex) {
-        const assetSourceHash = createHash('sha256').update(assetSource).digest('hex');
-        if (assetSourceHashIndex[assetPath] && assetSourceHashIndex[assetPath] === assetSourceHash) {
-          this.logger.info(targetDefinition, Chalk.yellow('[skipped; matched hash index]'));
-          return;
-        }
-        assetSourceHashIndex[assetPath] = assetSourceHash;
-      }
-
-      FSE.ensureDirSync(Path.dirname(relativeOutputPath));
-
-      try {
-        FSE.writeFileSync(relativeOutputPath.split('?')[0], assetSource);
-        this.logger.info(targetDefinition, Chalk.green('[written]'), Chalk.magenta(`(${Filesize(assetSize)})`));
-      } catch (exp) {
-        this.logger.info(targetDefinition, Chalk.bold.red('[is not written]'), Chalk.magenta(`(${Filesize(assetSize)})`));
-        this.logger.info(Chalk.bold.bgRed('Exception:'), Chalk.bold.red(exp.message));
-      }
-    });
-
-    return true;
   }
 
   createWatcher(path, pattern, isSyncOnly) {
@@ -152,10 +86,10 @@ export default class AEMClientLibGeneratorPlugin {
       recursive: true,
       persistent: true,
     }, ((evt, name) => {
-        if (this.pusher && evt === 'update') {
+        if (this.syncer && evt === 'update') {
           if (typeof (pattern) === 'undefined' || MM([name], pattern).length > 0) {
             if (isSyncOnly) {
-              this.pusher.enqueue(name);
+              this.syncer.enqueue(name);
             } else {
               this.generateClientLibs();
             }
@@ -172,8 +106,8 @@ export default class AEMClientLibGeneratorPlugin {
 
     const promise = this.options.before ? this.options.before : Util.promisify(setImmediate);
 
-    promise().then(() => {
-      this.logger.info(`generating clientlib... ${(new Date()).toLocaleTimeString()}`);
+    promise(this).then(() => {
+      this.logger.info('generating clientlib...');
       if (this.options.cleanBuildsOnce && !this.state.cleaned) {
         this.state.cleaned = true;
         return this.cleanClientLibs().catch(this.handleError);
@@ -181,20 +115,28 @@ export default class AEMClientLibGeneratorPlugin {
         return this.cleanClientLibs().catch(this.handleError);
       }
       return this.setImmediatePromise();
-    }).then(() => this.createBlankClientLibFolders())
-      .then(() => this.createClientLibConfig())
+    }).then(() => this.ensureClientLibFoldersExists())
       .then(() => this.copyFilesToLibs())
+      .then(() => this.createClientLibConfig())
       .then(() => {
-        this.logger.info(`clientlib generated - ${(new Date()).toLocaleTimeString()}`);
-        if (this.pusher && this.copiedFiles) {
-          if (callback) {
-            this.pendingCallback = callback;
-          }
-          this.copiedFiles.forEach((file) => {
-            this.pusher.enqueue(file);
-          });
+        this.logger.info('clientlib generated');
+        if (this.syncer && this.copiedFiles.length > 0) {
+          Syncer.uploadImmediately(this.copiedFiles, this.options.sync.targets, (err, host, syncer) => {
+            console.log('new pending callback called');
+            if (callback) {
+              callback(err, host, syncer);
+            }
+            if (this.options.onBuild) {
+              this.options.onBuild(this.options);
+            }
+            if (typeof this.options.sync.onPushEnd === 'function') {
+              this.options.sync.onPushEnd();
+            }
+          }, this.options.logLevel);
+          this.copiedFiles = [];
         } else if (callback) {
           callback();
+          this.options.onBuild(this.options);
         }
         if (!this.isWatchEnabled()) {
           process.exit(0);
@@ -202,33 +144,12 @@ export default class AEMClientLibGeneratorPlugin {
         return true;
       })
       .catch(this.handleError);
-
-  }
-
-  buildWatchList() {
-    if (this.options.watchDir) {
-      let files = [];
-      if (typeof (this.options.watchDir) === 'string') {
-        files = files.concat(Glob.sync(this.options.watchDir, {
-          cwd: this.options.context,
-        }));
-      } else {
-        _.forEach(this.options.watchDir, (dir) => {
-          files = files.concat(Glob.sync(dir, {
-            cwd: this.options.context,
-          }));
-        });
-      }
-      return files;
-    }
-    return this.options.context;
-
   }
 
   cleanClientLibs(libs = this.options.libs, baseDir = this.options.context) {
     return Promise.all(_.map(libs, (lib) => {
       const dir = Path.resolve(baseDir, lib.destination, lib.name);
-      this.logger.verbose(`cleaning directory: ${dir}`);
+      this.logger.verbose('cleaning directory:', Chalk.cyan(Path.relative(baseDir, dir)));
       const promise = this.options.beforeEach ? this.options.beforeEach : Util.promisify(setImmediate);
       return promise(lib).then(() => FSE.emptyDir(dir).catch(this.handleError)).catch(this.handleError);
     })).catch(this.handleError);
@@ -242,27 +163,43 @@ export default class AEMClientLibGeneratorPlugin {
     }
   }
 
-  createBlankClientLibFolders(libs = this.options.libs, baseDir = this.options.context) {
+  ensureClientLibFoldersExists(libs = this.options.libs, baseDir = this.options.context) {
     return Promise.all(_.map(libs, (lib) => {
       const dir = Path.resolve(baseDir, lib.destination, lib.name);
-      this.logger.verbose(`creating directory: ${dir}`);
+      this.logger.verbose('ensuring directory exists:', Chalk.cyan(Path.relative(baseDir, dir)));
       return FSE.ensureDir(dir).catch(this.handleError);
     }));
   }
 
   createClientLibConfig(libs = this.options.libs, baseDir = this.options.context) {
-    this.copiedFiles = [];
     const templateFn = this.templateEngine.compile();
+    let syncEntireLib = false;
+    if (typeof this.isFirstRun === 'undefined') {
+      this.isFirstRun = true;
+      if (this.options.sync && this.options.sync.pushEntireClientlibOnFirstRun) {
+        syncEntireLib = true;
+      }
+    } else {
+      this.isFirstRun = false;
+    }
     return Promise.all(_.map(libs, (lib) => {
       const xmlStr = templateFn({
         categoryName: typeof (lib.categoryName) === 'string' ? lib.categoryName : lib.name,
         dependencies: lib.dependencies ? lib.dependencies : '',
       });
       const file = Path.resolve(baseDir, lib.destination, lib.name, '.content.xml');
-      this.logger.verbose(`creating file: ${file}`);
       const promise = this.options.beforeEach ? this.options.beforeEach : Util.promisify(setImmediate);
-      this.copiedFiles.push(file);
-      return promise(lib).then(() => FSE.outputFile(file, xmlStr).catch(this.handleError)).catch(this.handleError);
+      let uploadPromiseFn = Promise.resolve.bind(Promise);
+      const matchResult = this.fileMatchesContent(file, xmlStr);
+      if (this.syncer && (syncEntireLib || !matchResult)) {
+        uploadPromiseFn = Syncer.uploadImmediately;
+        this.copiedFiles = [];
+        this.logger.verbose('creating config:', Chalk.cyan(Path.relative(baseDir, file)));
+      } else if (this.syncer && matchResult) {
+        this.logger.verbose('no change to config:', Chalk.cyan(Path.relative(baseDir, file)));
+        return uploadPromiseFn();
+      }
+      return promise(lib).then(() => FSE.outputFile(file, xmlStr).then(() => uploadPromiseFn(file, this.options.sync.targets, this.options.sync.onPushEnd, this.options.logLevel))).catch(this.handleError);
     })).catch(this.handleError);
   }
 
@@ -370,17 +307,24 @@ export default class AEMClientLibGeneratorPlugin {
     if (stats1.isDirectory()) {
       return 'dir';
     } else if (stats1.mtimeMs !== stats2.mtimeMs) {
-      this.logger.verbose(`copying file: ${Path.relative(this.options.context, src)} to ${Path.relative(this.options.context, dest)}`);
+      this.logger.verbose('copying file.', Chalk.cyan(Path.relative(this.options.context, src)));
       return true;
     } else if (stats1.size !== stats2.size) {
-      this.logger.verbose(`copying file:: ${Path.relative(this.options.context, src)} to ${Path.relative(this.options.context, dest)}`);
+      this.logger.verbose('copying file:', Chalk.cyan(Path.relative(this.options.context, src)));
       return true;
     }
-    this.logger.verbose(`skipping file: ${Path.relative(this.options.context, src)}`);
+    this.logger.verbose('skipping file', Chalk.cyan(Path.relative(this.options.context, src)));
     return false;
+  }
+
+  fileMatchesContent(filePath, content) {
+    return FSE.existsSync(filePath) && FSE.readFileSync(filePath).toString() === content;
   }
 
   isWatchEnabled() {
     return process.argv.indexOf('--watch') !== -1;
   }
 }
+
+export class SyncerUtil extends Syncer {}
+export class BuilderUtil extends Builder {}

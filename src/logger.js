@@ -1,16 +1,13 @@
 /* eslint no-console: 0 */
-import DebugFn from 'debug';
 import _ from 'lodash';
 import Moment from 'moment';
 import Chalk from 'chalk';
 
 export const pluginName = 'aem-clientlib-webpack-plugin';
-const debug = DebugFn(pluginName);
 
 export class BaseLogger {
   constructor(_level) {
     this.level = typeof (_level) === 'string' ? _level : 'silent';
-    console.log('Log level is', this.level);
   }
   verbose(...message) {
     throw new Error(`Base class method can't be called. This class must be extended. verbose(...message) called with ${message}`);
@@ -21,8 +18,9 @@ export class BaseLogger {
   error(...message) {
     throw new Error(`Base class method can't be called. This class must be extended. error(...message) called with ${message}`);
   }
-  log(type, append) {
-    debug(BaseLogger.getLogBanner(type), ...append);
+  log(type, ...append) {
+    // console.log(type, ...append);
+    console.log(...BaseLogger.getLogBanner(type), ...append);
   }
   static getColor(type) {
     switch (type) {
@@ -37,7 +35,7 @@ export class BaseLogger {
     }
   }
   static getLogBanner(type) {
-    return BaseLogger.getColor(type)(`[${Moment().format('HH:mm:ss')}] [${pluginName}]`);
+    return [BaseLogger.getColor(type)(type), Moment().format('HH:mm:ss'), Chalk.cyan(pluginName)];
   }
   static get pluginName() {
     return 'aem-clientlib-webpack-plugin';
