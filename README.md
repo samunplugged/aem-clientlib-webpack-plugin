@@ -3,6 +3,8 @@ a webpack plugin to create clientlib(s)
 
 <img src="https://travis-ci.org/samunplugged/aem-clientlib-webpack-plugin.svg?branch=master" />
 
+[![NPM](https://nodei.co/npm/aem-clientlib-webpack-plugin.png)](https://nodei.co/npm/aem-clientlib-webpack-plugin/)
+
 ## Install
 You can install the AEM Clientlib Webpack plugin as a dependency using either NPM or Yarn.
 
