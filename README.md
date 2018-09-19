@@ -25,6 +25,8 @@ A config file is a JS file that exports an Object literal and specifies settings
 
 ### clientlib.config.js
 ```js
+
+const path = require('path');
 module.exports = {
   // context: this sets the base directory of your project from which all other paths are derived
   context: __dirname, 
@@ -36,10 +38,10 @@ module.exports = {
   // will be watched which can cause multiple generation of clientlibs. 
   watchPaths: [
     // any changes to matching files will result in generation of client libs and if sync is enabled they will be synced
-    {path: Path.resolve(__dirname, '../legacy-code/js'), match: "**"},
+    {path: path.resolve(__dirname, '../legacy-code/js'), match: "**"},
     // if the syncOnly option is set to true then clients won't be generated, but those files will be synced to AEM server
-    {path: Path.resolve(__dirname, '../'), match: "**/jcr_root/apps/**/*.html", syncOnly: true}
-  ]
+    {path: path.resolve(__dirname, '../'), match: "**/jcr_root/apps/**/*.html", syncOnly: true}
+  ],
   
   // logLevel: this sets the log level. You can specify 'info', 'verbose', or 'off'
   logLevel: 'info',
@@ -84,7 +86,7 @@ module.exports = {
         resources: [
           {src: "src/assets/**", dest: "./", base:"src/assets"}
         ]
-      }
+      },
       // baseTxtFile: if you want you can ask this tool to use an existing .txt file as base
       baseTxtFile: {
         js: path.resolve(__dirname, '../legacy-code/js.txt')
@@ -123,7 +125,7 @@ module.exports = {
     // return a promise. 
     // resolve the promise when you want tool to continue
     // or reject the promise when you want tool to skip generating clientlib
-  }
+  },
 
   // generation of clientlibs depends on webpack writing the files
   // if you already writing to disk using write-file-webpack-plugin
