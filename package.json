@@ -37,7 +37,7 @@
     "glob-fs": "^0.1.7"
   },
   "dependencies": {
-    "aemsync": "^2.0.1",
+    "aemsync": "^3.0.2",
     "async": "^2.6.0",
     "babel-core": "^6.26.0",
     "babel-polyfill": "^6.26.0",
