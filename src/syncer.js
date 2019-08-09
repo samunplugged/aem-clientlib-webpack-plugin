@@ -1,6 +1,6 @@
 /* eslint no-console: 0 */
 import {
-  Pusher
+  Pipeline
 } from 'aemsync';
 import 'babel-core/register';
 import 'babel-polyfill';
@@ -17,8 +17,13 @@ export default class Syncer {
     this.setUp();
   }
   setUp() {
-    this.pusher = new Pusher(this.targets, this.pushInterval, (err, host) => {
-      this.onPushEnd(err, host);
+    this.pusher = new Pipeline({
+      targets: this.targets, 
+      interval: this.pushInterval, 
+      packmgrPath: null, 
+      onPushEnd: (err, host) => {
+        this.onPushEnd(err, host);
+      }
     });
     this.pusher.start();
   }
