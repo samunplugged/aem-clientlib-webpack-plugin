@@ -184,8 +184,10 @@ export default class AEMClientLibGeneratorPlugin {
     }
     return Promise.all(_.map(libs, (lib) => {
       const xmlStr = templateFn({
+        allowProxy: lib.allowProxy ? 'true' : 'false',
         categoryName: typeof (lib.categoryName) === 'string' ? lib.categoryName : lib.name,
         dependencies: lib.dependencies ? lib.dependencies : '',
+        embed: lib.embed ? lib.embed : ''
       });
       const file = Path.resolve(baseDir, lib.destination, lib.name, '.content.xml');
       const promise = this.options.beforeEach ? this.options.beforeEach : Util.promisify(setImmediate);

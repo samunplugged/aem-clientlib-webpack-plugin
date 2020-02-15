@@ -57,6 +57,8 @@ module.exports = {
     {
       // name: name of the clientlib. a folder by this name will be created in destination folder.
       name: "weretail.all",
+      // allowProxy: specifies whether the clientlib should be proxied to /etc.clientlibs
+      allowProxy: true,
       // categoryName: specifiy of the clientlib to be used in content.xml (if this is not specified, then value of 'name' property would be used)
       categoryName: "weretail.all",
       // destination: specify where you want to generate the clientlib. a relative path is required.
@@ -102,6 +104,8 @@ module.exports = {
       // dependencies: comma seperated list of dependencies for this clientlib. 
       // in this case we are generating a clientlib with just CSS and it depends on weretail.all we created earlier.
       dependencies: "weretail.all",
+      // embed: comma separated list of embedded clientlibs 
+      embed: "jquery-ui",
       assets: {
         css: [
           "build/dist/css/main.rtl.css"
