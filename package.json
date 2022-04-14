@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "aemsync": "^3.0.2",
-    "async": "^2.6.0",
+    "async": "^3.2.2",
     "babel-core": "^6.26.0",
     "babel-polyfill": "^6.26.0",
     "chalk": "^2.3.0",
